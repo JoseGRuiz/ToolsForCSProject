@@ -1,32 +1,18 @@
 import os
 import json
-from os import listdir
-from os.path import isfile, join
+
+OUTPUT_JSON_FILENAME = 'annotations_group.json'
 
 '''
-Appends one .json file to another .json file
-for use in congregating the annotated .json files together
+combines the json files in a given directory
+for now assuming the directory contains only json files
+returns a dictionary with all annotations merged 
 '''
-
-def cat_json(output_filename, input_filenames):
-    with open(output_filename, "w") as outfile:
-        firstFile = True
-        for infile_name in input_filenames:
-            with open(infile_name) as infile:
-                if firstFile:
-                    outfile.write('[')
-                    firstFile = False
-                else:
-                    outfile.write(',')
-                outfile.write(mangle(infile.read()))
-        outfile.write(']')
-
-def mangle(s):
-    return s.strip()[1:-1] #start:end possibly need to change
-
 def combine_annotations_in_dir(directory):
 	images_w_annotations = {}
 	for file in os.listdir(directory):
+		if file == OUTPUT_JSON_FILENAME: #skip the merged file
+			continue
 		with open(os.path.join(directory, file), 'r') as f:
 			line = f.readline()	#we expect the json files to be a single long line
 
@@ -44,15 +30,15 @@ def combine_annotations_in_dir(directory):
 	return images_w_annotations
 
 def main():
-	mypath = os.getcwd()
-	#input_files = [f for f in os.listdir(mypath) if isfile(join(mypath, f))]
 	path_to_json = os.path.join('..', 'annotations')
 	annotations = combine_annotations_in_dir(path_to_json)
-	print(annotations)	
 
-		#images_w_annotations.sort()
 	print(annotations)
-
+	annotations_as_json = json.dumps(annotations)
+	#right now I think we're just rewriting the entire file each time 
+	#would it be worth it to make it only append? 
+	with open(os.path.join(path_to_json, OUTPUT_JSON_FILENAME), 'w') as f:
+		f.write(annotations_as_json)
 
 if __name__ == '__main__':
     main()
