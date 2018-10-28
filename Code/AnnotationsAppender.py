@@ -55,36 +55,85 @@ def combine_csv_in_dir(directory):
 			#matching item in the list ex. filename column contains file names
 			header = csvreader.__next__()
 			rc_index = header.index('region_count')
+			region_shape_attr = header.index('region_shape_attributes')
 			for row in csvreader:
 				#we want to copy annotations of pictures with at least 1 annotation
-				if int(row[rc_index]) > 0: 
+				#also only accept rect type annotations for now
+				if int(row[rc_index]) > 0 and 'rect' in row[region_shape_attr]: 
 					images_w_annotations.append(row)
 
 	return header, images_w_annotations
 
-def main():
-	path_to_files = os.path.join('..', 'annotations')
+'''
+this format is preffered by Ayesha who is writing
+the main program, it is a modified subset of the via output
+the basic form is file, x, y, x+w, y+h, class
+'''
+def extract_useful(header, csv_annotations):
+	filename_index = header.index('filename')
+	region_shape_attr = header.index('region_shape_attributes')
+	#region shape attributes are split up into 5 strings
+	region_attr = region_shape_attr + 5
 
-	if sys.argv[1].lower() == 'json':
+	new_annotations = []
+	for row in csv_annotations:
+		new_row = [row[filename_index]]
+		#first 2 are copies of x and y 
+		for i in range(1, 3):
+			#the number starts 1 after the semicolon
+			start_of_num = row[region_shape_attr + i].find(':') + 1
+			new_row.append(int(row[region_shape_attr + i][start_of_num:]))
+		#last 2 are x+w, and y+h
+		#x and y are 2 spaces away from x+w, and y+h respectively
+		start_of_num = row[region_shape_attr + 3].find(':') + 1
+		new_row.append(new_row[1] + int(row[region_shape_attr + 3][start_of_num:]))
+		
+		start_of_num = row[region_shape_attr + 4].find(':') + 1
+		new_row.append(new_row[2] + int(row[region_shape_attr + 4][start_of_num:-2]))	
+	
+		#the last string is a bit tricky but same idea works 
+		#find the semicolon and then skip over unimportant characters
+		#the rest of the string except the last 4 characters is the class name
+		start_of_name = row[region_attr].find(':') + 3
+		new_row.append(row[region_attr][start_of_name:-4])
+
+		new_annotations.append(new_row)
+
+	new_header = ['filename', 'TopL_x', 'TopL_y', 'BottomR_x', 'BottomR_y', 'class']
+	return new_header, new_annotations
+
+def main():
+	if len(sys.argv) < 3:
+		print('error: make sure to call in this form python <path_to_files> <type_of_fies>')
+		exit(1)
+
+	path_to_files = sys.argv[1]
+
+	if sys.argv[2].lower() == 'json':
 		annotations = combine_json_in_dir(path_to_files)
-		print(annotations)
+		#print(annotations)
 
 		annotations_as_json = json.dumps(annotations)
 		#right now I think we're just rewriting the entire file each time 
 		#would it be worth it to make it only append? 
 		with open(os.path.join(path_to_files, OUTPUT_JSON_FILENAME), 'w') as f:
 			f.write(annotations_as_json)
-	elif sys.argv[1].lower() == 'csv':
-		header, annotations = combine_csv_in_dir(path_to_files)
-		print(annotations)
 
-		with open(os.path.join(path_to_files, OUTPUT_CSV_FILENAME), 'w') as f:
-			csv_writter = csv.writer(f, delimiter=',',
+		print('succesfully joined json files')
+	elif sys.argv[2].lower() == 'csv':
+		header, annotations = combine_csv_in_dir(path_to_files)
+		#print(annotations)
+
+		header, annotations = extract_useful(header, annotations)
+		with open(os.path.join(path_to_files, OUTPUT_CSV_FILENAME), 'w') as outputcsv:
+			csv_writter = csv.writer(outputcsv, delimiter=',',
 											quotechar = '|', quoting=csv.QUOTE_MINIMAL, lineterminator='\n')
 			
 			csv_writter.writerow(header)
 			for row in annotations:
 				csv_writter.writerow(row)
+
+		print('succesfully joined csv files')
 
 
 if __name__ == '__main__':
