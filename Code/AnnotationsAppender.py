@@ -42,6 +42,7 @@ returns a header and a list with all annotations merged
 def combine_csv_in_dir(directory):
 	header = None
 	images_w_annotations = []
+	contributions = []
 	for file in os.listdir(directory):
 		if file == OUTPUT_CSV_FILENAME: #skip the merged file
 			continue
@@ -56,13 +57,19 @@ def combine_csv_in_dir(directory):
 			header = csvreader.__next__()
 			rc_index = header.index('region_count')
 			region_shape_attr = header.index('region_shape_attributes')
+			file_contributions = {}
 			for row in csvreader:
 				#we want to copy annotations of pictures with at least 1 annotation
 				#also only accept rect type annotations for now
-				if int(row[rc_index]) > 0 and 'rect' in row[region_shape_attr]: 
+				if int(row[rc_index]) > 0 and 'rect' in row[region_shape_attr]:
+					if row[0] in file_contributions:
+						file_contributions[row[0]] += 1
+					else:
+						file_contributions[row[0]] = 1
 					images_w_annotations.append(row)
+			contributions.append((file, file_contributions))
 
-	return header, images_w_annotations
+	return header, images_w_annotations, contributions
 
 '''
 this format is preffered by Ayesha who is writing
@@ -102,6 +109,21 @@ def extract_useful(header, csv_annotations):
 	new_header = ['filename', 'TopL_x', 'TopL_y', 'BottomR_x', 'BottomR_y', 'class']
 	return new_header, new_annotations
 
+def printContributions(contributions):
+	"""
+	prints usefull information about how each file is contributing to 
+	the final merged file
+	"""
+	for file, file_contributions in contributions:
+			print('file {0} contributed {1} annotated pictures to the merged file'.format(
+				file, len(file_contributions)))
+			individual_annotations = 0
+			for annottation in file_contributions:
+				individual_annotations += file_contributions[annottation]
+			print('\ttotal annotations: {0}'.format(individual_annotations))
+			print('\taverage annotations per file: {:.2f}\n'.format(
+				individual_annotations / len(file_contributions)))
+
 def main():
 	if len(sys.argv) < 3:
 		print('error: make sure to call in this form python <path_to_files> <type_of_fies>')
@@ -121,7 +143,7 @@ def main():
 
 		print('succesfully joined json files')
 	elif sys.argv[2].lower() == 'csv':
-		header, annotations = combine_csv_in_dir(path_to_files)
+		header, annotations, contributions = combine_csv_in_dir(path_to_files)
 		#print(annotations)
 
 		header, annotations = extract_useful(header, annotations)
@@ -134,7 +156,7 @@ def main():
 				csv_writter.writerow(row)
 
 		print('succesfully joined csv files')
-
+		printContributions(contributions)
 
 if __name__ == '__main__':
     main()
