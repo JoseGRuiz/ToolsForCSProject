@@ -84,7 +84,8 @@ def extract_useful(header, csv_annotations):
 
 	new_annotations = []
 	for row in csv_annotations:
-		new_row = [row[filename_index]]
+		#instead of hardcoding this make it an input param or at least a global
+		new_row = [os.path.join('/home/ayeshag/ImageDump/', row[filename_index])]
 		#first 2 are copies of x and y 
 		for i in range(1, 3):
 			#the number starts 1 after the semicolon
